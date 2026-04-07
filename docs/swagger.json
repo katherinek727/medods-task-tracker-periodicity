@@ -93,14 +93,15 @@
     "Task": {
       "type": "object",
       "properties": {
-        "id":          { "type": "string", "format": "uuid" },
-        "title":       { "type": "string" },
-        "description": { "type": "string" },
-        "status":      { "type": "string", "enum": ["new", "in_progress", "done", "cancelled"] },
-        "scheduled_at":{ "type": "string", "format": "date-time" },
-        "recurrence":  { "$ref": "#/definitions/Recurrence" },
-        "created_at":  { "type": "string", "format": "date-time" },
-        "updated_at":  { "type": "string", "format": "date-time" }
+        "id":             { "type": "string", "format": "uuid" },
+        "title":          { "type": "string" },
+        "description":    { "type": "string" },
+        "status":         { "type": "string", "enum": ["new", "in_progress", "done", "cancelled"] },
+        "scheduled_at":   { "type": "string", "format": "date-time" },
+        "recurrence":     { "$ref": "#/definitions/Recurrence" },
+        "parent_task_id": { "type": "string", "format": "uuid", "description": "ID of the template task that generated this instance. Null on the template itself." },
+        "created_at":     { "type": "string", "format": "date-time" },
+        "updated_at":     { "type": "string", "format": "date-time" }
       }
     },
     "Recurrence": {

@@ -60,11 +60,12 @@ func (uc *TaskUseCase) generateInstances(ctx context.Context, template *task.Tas
 	var created []*task.Task
 	for _, d := range dates {
 		instance := &task.Task{
-			Title:       template.Title,
-			Description: template.Description,
-			Status:      task.StatusNew,
-			ScheduledAt: d,
-			Recurrence:  template.Recurrence,
+			Title:        template.Title,
+			Description:  template.Description,
+			Status:       task.StatusNew,
+			ScheduledAt:  d,
+			Recurrence:   template.Recurrence,
+			ParentTaskID: &template.ID,
 		}
 		if err := uc.repo.Create(ctx, instance); err != nil {
 			return nil, fmt.Errorf("usecase: create recurrence instance: %w", err)

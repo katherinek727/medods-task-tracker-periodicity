@@ -13,6 +13,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./migrations/0001_create_tasks.up.sql:/docker-entrypoint-initdb.d/01_create_tasks.sql
       - ./migrations/0002_add_recurrence.up.sql:/docker-entrypoint-initdb.d/02_add_recurrence.sql
+      - ./migrations/0003_add_parent_task_id.up.sql:/docker-entrypoint-initdb.d/03_add_parent_task_id.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s

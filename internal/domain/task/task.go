@@ -77,14 +77,17 @@ func (r *Recurrence) Validate() error {
 
 // Task is the core domain entity.
 type Task struct {
-	ID          uuid.UUID   `json:"id"`
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	Status      Status      `json:"status"`
-	ScheduledAt time.Time   `json:"scheduled_at"`
-	Recurrence  *Recurrence `json:"recurrence,omitempty"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	ID           uuid.UUID  `json:"id"`
+	Title        string     `json:"title"`
+	Description  string     `json:"description"`
+	Status       Status     `json:"status"`
+	ScheduledAt  time.Time  `json:"scheduled_at"`
+	Recurrence   *Recurrence `json:"recurrence,omitempty"`
+	// ParentTaskID is set on every recurring instance and points to the
+	// template task that generated it. NULL on the template itself.
+	ParentTaskID *uuid.UUID `json:"parent_task_id,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 // Validate performs basic domain validation on a Task.

@@ -27,11 +27,12 @@ func NewPostgresRepository(db *pgxpool.Pool) task.Repository {
 // rowToTask scans a full tasks row (including recurrence columns) into a Task.
 func rowToTask(row pgx.Row) (*task.Task, error) {
 	var (
-		t              task.Task
-		recType        *string
-		recInterval    *int
-		recDay         *int
-		recDates       []time.Time
+		t            task.Task
+		recType      *string
+		recInterval  *int
+		recDay       *int
+		recDates     []time.Time
+		parentTaskID *uuid.UUID
 	)
 
 	err := row.Scan(
@@ -44,6 +45,7 @@ func rowToTask(row pgx.Row) (*task.Task, error) {
 		&recInterval,
 		&recDay,
 		&recDates,
+		&parentTaskID,
 		&t.CreatedAt,
 		&t.UpdatedAt,
 	)
@@ -66,13 +68,15 @@ func rowToTask(row pgx.Row) (*task.Task, error) {
 		}
 	}
 
+	t.ParentTaskID = parentTaskID
+
 	return &t, nil
 }
 
 const selectCols = `
 	id, title, description, status, scheduled_at,
 	recurrence_type, recurrence_interval, recurrence_day, recurrence_dates,
-	created_at, updated_at`
+	parent_task_id, created_at, updated_at`
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
 
@@ -103,10 +107,11 @@ func (r *postgresRepo) Create(ctx context.Context, t *task.Task) error {
 		INSERT INTO tasks
 			(id, title, description, status, scheduled_at,
 			 recurrence_type, recurrence_interval, recurrence_day, recurrence_dates,
-			 created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+			 parent_task_id, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		t.ID, t.Title, t.Description, t.Status, t.ScheduledAt,
 		recType, recInterval, recDay, recDates,
+		t.ParentTaskID,
 		t.CreatedAt, t.UpdatedAt,
 	)
 	if err != nil {
@@ -178,10 +183,12 @@ func (r *postgresRepo) Update(ctx context.Context, t *task.Task) error {
 			recurrence_interval = $6,
 			recurrence_day      = $7,
 			recurrence_dates    = $8,
-			updated_at          = $9
-		WHERE id = $10`,
+			parent_task_id      = $9,
+			updated_at          = $10
+		WHERE id = $11`,
 		t.Title, t.Description, t.Status, t.ScheduledAt,
 		recType, recInterval, recDay, recDates,
+		t.ParentTaskID,
 		t.UpdatedAt, t.ID,
 	)
 	if err != nil {

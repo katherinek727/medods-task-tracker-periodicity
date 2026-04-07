@@ -12,9 +12,11 @@ import (
 func NewRouter(h *Handler) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Logger)
+	r.Use(Timeout)
+	r.Use(ContentTypeJSON)
 
 	// Serve the OpenAPI spec file.
 	r.Get("/swagger/openapi.json", func(w http.ResponseWriter, req *http.Request) {

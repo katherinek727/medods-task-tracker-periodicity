@@ -27,18 +27,40 @@ Base prefix: `/api/v1`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/tasks` | Create task (with optional recurrence) |
-| GET | `/tasks` | List all tasks |
-| GET | `/tasks/{id}` | Get task by ID |
-| PUT | `/tasks/{id}` | Update task |
-| DELETE | `/tasks/{id}` | Delete task |
+| `POST` | `/tasks` | Create task (with optional recurrence) |
+| `GET` | `/tasks` | List tasks (supports filters) |
+| `GET` | `/tasks/{id}` | Get task by ID |
+| `PUT` | `/tasks/{id}` | Update a single task instance |
+| `DELETE` | `/tasks/{id}` | Delete a single task |
+| `DELETE` | `/tasks/{id}/recurrences` | Delete all recurring instances of a template task |
+
+### GET /tasks — query filters
+
+All filters are optional and combinable.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | string | `new` \| `in_progress` \| `done` \| `cancelled` |
+| `from` | RFC3339 | `scheduled_at >= from` |
+| `to` | RFC3339 | `scheduled_at <= to` |
+| `parent_id` | UUID | All instances belonging to a template task |
+
+**Example — all pending tasks in April 2026:**
+```
+GET /api/v1/tasks?status=new&from=2026-04-01T00:00:00Z&to=2026-04-30T23:59:59Z
+```
+
+**Example — all instances of a recurring task:**
+```
+GET /api/v1/tasks?parent_id=<template-uuid>
+```
 
 ---
 
 ## Recurrence Feature
 
-When creating a task, you can optionally include a `recurrence` object.  
-The system will automatically generate all recurring instances for **1 year** from the base `scheduled_at`.
+When creating a task, include a `recurrence` object.  
+The system generates all recurring instances for **1 year** from `scheduled_at` and stores them as individual rows.
 
 ### Recurrence Types
 
@@ -46,11 +68,11 @@ The system will automatically generate all recurring instances for **1 year** fr
 |------|-------------|-----------------|
 | `daily` | Every N days | `interval` (≥ 1) |
 | `monthly` | Fixed day of month | `day_of_month` (1–30) |
-| `specific_dates` | Only on listed dates | `dates` (array of timestamps) |
+| `specific_dates` | Only on listed dates | `dates` (array of RFC3339 timestamps) |
 | `even_days` | Even calendar days of month | — |
 | `odd_days` | Odd calendar days of month | — |
 
-### Examples
+### Request examples
 
 **Daily — every 2 days:**
 ```json
@@ -67,7 +89,7 @@ POST /api/v1/tasks
 }
 ```
 
-**Monthly — every 15th of the month:**
+**Monthly — every 15th:**
 ```json
 {
   "title": "Monthly reporting",
@@ -105,48 +127,66 @@ POST /api/v1/tasks
 }
 ```
 
-The response is an array — the first element is the base task, followed by all generated instances.
+The response is an array — the first element is the template task, followed by all generated instances.  
+Every instance carries a `parent_task_id` pointing back to the template.
+
+### Bulk-deleting a recurring series
+
+To cancel all future instances without deleting the template:
+
+```
+DELETE /api/v1/tasks/{template-id}/recurrences
+```
+
+Response:
+```json
+{ "deleted": 182 }
+```
 
 ---
 
 ## Design Decisions & Assumptions
 
 ### 1. Recurrence generates concrete task instances
-Rather than storing a recurrence rule and computing dates on the fly at query time, each recurring occurrence is stored as a **separate task row** in the database. This approach:
-- keeps queries simple and fast (no runtime expansion)
-- allows each instance to be independently updated or cancelled
-- makes the data model straightforward for other modules in the MIS to consume
+Each recurring occurrence is stored as a **separate task row**. This keeps queries simple and fast, lets each instance be independently updated or cancelled, and makes the data model easy for other MIS modules to consume.
 
-**Trade-off:** a 1-year daily task generates ~365 rows. For this domain (medical staff tasks) that is entirely acceptable.
+**Trade-off:** a 1-year daily task generates ~365 rows. Acceptable for medical staff scheduling.
 
-### 2. 1-year generation horizon
-The recurrence window is fixed at **1 year from `scheduled_at`**. This is a reasonable default for medical workflows — schedules rarely need to be planned further ahead. It can be made configurable via an env variable if needed.
+### 2. `parent_task_id` links instances to their template
+Every generated instance has `parent_task_id` set to the template's ID. The template itself has `parent_task_id = NULL`. A foreign key with `ON DELETE CASCADE` ensures instances are cleaned up if the template is deleted directly.
 
-### 3. `day_of_month` capped at 30, not 31
-Months have varying lengths (28–31 days). To avoid silent skipping of dates (e.g. Feb 31), the maximum allowed `day_of_month` is **30**, which exists in every month. Day 31 is excluded intentionally.
+### 3. 1-year generation horizon
+Fixed at **1 year from `scheduled_at`**. Medical schedules rarely need planning beyond that. Configurable via env variable if needed.
 
-### 4. The base task is also stored
-When recurrence is provided, the `scheduled_at` of the request becomes the **first occurrence** (the template task). All subsequent dates are generated after it. The API returns the full list so the client knows exactly what was created.
+### 4. `day_of_month` capped at 30, not 31
+Months have 28–31 days. To avoid silently skipping February or short months, the maximum is **30**, which exists in every month.
 
 ### 5. Updating a recurring task updates only that instance
-`PUT /tasks/{id}` updates a single task row. It does not cascade to sibling instances. This mirrors how tools like Google Calendar handle "edit this event" vs "edit all events" — the simpler, safer default.
+`PUT /tasks/{id}` is single-instance. No cascade to siblings — mirrors the "edit this event" default in calendar apps.
 
-### 6. Status defaults to `new`
+### 6. Bulk-delete keeps the template
+`DELETE /tasks/{id}/recurrences` removes all children but leaves the template row intact. This lets the user keep the original task record while clearing the generated schedule.
+
+### 7. Status defaults to `new`
 If `status` is omitted in the request body, it defaults to `new`.
+
+### 8. Graceful shutdown
+The server listens for `SIGTERM`/`SIGINT` and gives in-flight requests **15 seconds** to complete before exiting. Safe for containerised deployments.
 
 ---
 
 ## Project Structure
 
 ```
-cmd/api/            → entrypoint
+cmd/api/            → entrypoint (server + graceful shutdown)
 internal/
-  domain/task/      → Task entity, Recurrence model, Repository interface
+  domain/task/      → Task entity, Recurrence model, ListFilter, Repository interface
   usecase/          → business logic, recurrence expansion
-  repository/       → PostgreSQL implementation
+  repository/       → PostgreSQL implementation (dynamic filter queries)
   transport/http/   → chi router, HTTP handlers
   infrastructure/   → DB connection pool
-migrations/         → SQL migration files
+migrations/         → SQL migration files (applied in order by docker-compose)
+docs/               → OpenAPI 2.0 spec (served at /swagger/)
 ```
 
 ---

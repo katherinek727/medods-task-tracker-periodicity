@@ -161,3 +161,14 @@ func (uc *TaskUseCase) UpdateTask(ctx context.Context, t *task.Task) error {
 func (uc *TaskUseCase) DeleteTask(ctx context.Context, id uuid.UUID) error {
 	return uc.repo.Delete(ctx, id)
 }
+
+// DeleteRecurrences removes all recurring instances that belong to the given
+// template task. It verifies the template exists first, then deletes its
+// children. The template itself is NOT deleted.
+// Returns the count of deleted instances.
+func (uc *TaskUseCase) DeleteRecurrences(ctx context.Context, templateID uuid.UUID) (int64, error) {
+	if _, err := uc.repo.GetByID(ctx, templateID); err != nil {
+		return 0, err // propagates task.ErrNotFound
+	}
+	return uc.repo.DeleteByParentID(ctx, templateID)
+}

@@ -35,6 +35,7 @@ func NewRouter(h *Handler) http.Handler {
 			r.Get("/{id}", h.GetTask)
 			r.Put("/{id}", h.UpdateTask)
 			r.Delete("/{id}", h.DeleteTask)
+			r.Delete("/{id}/recurrences", h.DeleteRecurrences)
 		})
 	})
 

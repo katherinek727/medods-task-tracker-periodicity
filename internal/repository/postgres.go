@@ -210,3 +210,11 @@ func (r *postgresRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+
+func (r *postgresRepo) DeleteByParentID(ctx context.Context, parentID uuid.UUID) (int64, error) {
+	tag, err := r.db.Exec(ctx, `DELETE FROM tasks WHERE parent_task_id = $1`, parentID)
+	if err != nil {
+		return 0, fmt.Errorf("repository: delete by parent id: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}

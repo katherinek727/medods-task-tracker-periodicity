@@ -87,6 +87,24 @@
           "404": { "description": "Not found", "schema": { "$ref": "#/definitions/ErrorResponse" } }
         }
       }
+    },
+    "/tasks/{id}/recurrences": {
+      "delete": {
+        "summary": "Delete all recurring instances of a task",
+        "description": "Deletes every instance whose parent_task_id matches the given template ID. The template itself is kept.",
+        "tags": ["tasks"],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "type": "string", "format": "uuid", "description": "Template task UUID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Number of deleted instances",
+            "schema": { "$ref": "#/definitions/DeleteRecurrencesResponse" }
+          },
+          "400": { "description": "Invalid UUID", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "404": { "description": "Template task not found", "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
     }
   },
   "definitions": {
@@ -151,6 +169,12 @@
         "status":      { "type": "string", "enum": ["new", "in_progress", "done", "cancelled"] },
         "scheduled_at":{ "type": "string", "format": "date-time" },
         "recurrence":  { "$ref": "#/definitions/Recurrence" }
+      }
+    },
+    "DeleteRecurrencesResponse": {
+      "type": "object",
+      "properties": {
+        "deleted": { "type": "integer", "description": "Number of recurring instances deleted" }
       }
     },
     "ErrorResponse": {

@@ -241,3 +241,31 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// DeleteRecurrences godoc
+// @Summary      Delete all recurring instances of a task
+// @Description  Deletes every instance whose parent_task_id matches the given template ID. The template itself is kept.
+// @Tags         tasks
+// @Param        id path string true "Template task UUID"
+// @Success      200 {object} deleteRecurrencesResponse
+// @Failure      400 {object} errorResponse
+// @Failure      404 {object} errorResponse
+// @Router       /tasks/{id}/recurrences [delete]
+func (h *Handler) DeleteRecurrences(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUID(w, r)
+	if !ok {
+		return
+	}
+
+	count, err := h.uc.DeleteRecurrences(r.Context(), id)
+	if err != nil {
+		respondError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, deleteRecurrencesResponse{Deleted: count})
+}
+
+type deleteRecurrencesResponse struct {
+	Deleted int64 `json:"deleted"`
+}

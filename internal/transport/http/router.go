@@ -16,7 +16,12 @@ func NewRouter(h *Handler) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 
-	// Swagger UI
+	// Serve the OpenAPI spec file.
+	r.Get("/swagger/openapi.json", func(w http.ResponseWriter, req *http.Request) {
+		http.ServeFile(w, req, "docs/swagger.json")
+	})
+
+	// Swagger UI — reads spec from /swagger/openapi.json.
 	r.Get("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/openapi.json"),
 	))

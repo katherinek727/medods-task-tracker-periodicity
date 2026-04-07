@@ -1,0 +1,162 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Task Tracker API",
+    "description": "Medical task tracker with recurrence support",
+    "version": "1.0.0"
+  },
+  "host": "localhost:8080",
+  "basePath": "/api/v1",
+  "schemes": ["http"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "paths": {
+    "/tasks": {
+      "get": {
+        "summary": "List all tasks",
+        "tags": ["tasks"],
+        "responses": {
+          "200": {
+            "description": "List of tasks",
+            "schema": { "type": "array", "items": { "$ref": "#/definitions/Task" } }
+          },
+          "500": { "description": "Internal error", "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      },
+      "post": {
+        "summary": "Create a task",
+        "description": "Creates a base task. If recurrence is provided, all instances for 1 year are also created and returned.",
+        "tags": ["tasks"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/CreateTaskRequest" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created tasks (base + recurrence instances)",
+            "schema": { "type": "array", "items": { "$ref": "#/definitions/Task" } }
+          },
+          "400": { "description": "Validation error", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "500": { "description": "Internal error", "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "summary": "Get task by ID",
+        "tags": ["tasks"],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "type": "string", "format": "uuid" }
+        ],
+        "responses": {
+          "200": { "description": "Task", "schema": { "$ref": "#/definitions/Task" } },
+          "400": { "description": "Invalid UUID", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "404": { "description": "Not found", "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      },
+      "put": {
+        "summary": "Update a task",
+        "tags": ["tasks"],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "type": "string", "format": "uuid" },
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/UpdateTaskRequest" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Updated task", "schema": { "$ref": "#/definitions/Task" } },
+          "400": { "description": "Validation error", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "404": { "description": "Not found", "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      },
+      "delete": {
+        "summary": "Delete a task",
+        "tags": ["tasks"],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "type": "string", "format": "uuid" }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "404": { "description": "Not found", "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Task": {
+      "type": "object",
+      "properties": {
+        "id":          { "type": "string", "format": "uuid" },
+        "title":       { "type": "string" },
+        "description": { "type": "string" },
+        "status":      { "type": "string", "enum": ["new", "in_progress", "done", "cancelled"] },
+        "scheduled_at":{ "type": "string", "format": "date-time" },
+        "recurrence":  { "$ref": "#/definitions/Recurrence" },
+        "created_at":  { "type": "string", "format": "date-time" },
+        "updated_at":  { "type": "string", "format": "date-time" }
+      }
+    },
+    "Recurrence": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["daily", "monthly", "specific_dates", "even_days", "odd_days"],
+          "description": "Recurrence strategy"
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Used with type=daily. Repeat every N days."
+        },
+        "day_of_month": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30,
+          "description": "Used with type=monthly. Fixed calendar day."
+        },
+        "dates": {
+          "type": "array",
+          "items": { "type": "string", "format": "date-time" },
+          "description": "Used with type=specific_dates. Explicit list of dates."
+        }
+      }
+    },
+    "CreateTaskRequest": {
+      "type": "object",
+      "required": ["title", "scheduled_at"],
+      "properties": {
+        "title":       { "type": "string" },
+        "description": { "type": "string" },
+        "status":      { "type": "string", "enum": ["new", "in_progress", "done", "cancelled"] },
+        "scheduled_at":{ "type": "string", "format": "date-time" },
+        "recurrence":  { "$ref": "#/definitions/Recurrence" }
+      }
+    },
+    "UpdateTaskRequest": {
+      "type": "object",
+      "required": ["title", "scheduled_at"],
+      "properties": {
+        "title":       { "type": "string" },
+        "description": { "type": "string" },
+        "status":      { "type": "string", "enum": ["new", "in_progress", "done", "cancelled"] },
+        "scheduled_at":{ "type": "string", "format": "date-time" },
+        "recurrence":  { "$ref": "#/definitions/Recurrence" }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

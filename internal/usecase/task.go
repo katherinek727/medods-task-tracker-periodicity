@@ -144,9 +144,9 @@ func (uc *TaskUseCase) GetTask(ctx context.Context, id uuid.UUID) (*task.Task, e
 	return uc.repo.GetByID(ctx, id)
 }
 
-// ListTasks returns all tasks ordered by scheduled_at.
-func (uc *TaskUseCase) ListTasks(ctx context.Context) ([]*task.Task, error) {
-	return uc.repo.List(ctx)
+// ListTasks returns tasks ordered by scheduled_at, applying optional filters.
+func (uc *TaskUseCase) ListTasks(ctx context.Context, f task.ListFilter) ([]*task.Task, error) {
+	return uc.repo.List(ctx, f)
 }
 
 // UpdateTask validates and updates an existing task.

@@ -134,9 +134,37 @@ func (r *postgresRepo) GetByID(ctx context.Context, id uuid.UUID) (*task.Task, e
 	return t, nil
 }
 
-func (r *postgresRepo) List(ctx context.Context) ([]*task.Task, error) {
-	rows, err := r.db.Query(ctx,
-		`SELECT `+selectCols+` FROM tasks ORDER BY scheduled_at ASC`)
+func (r *postgresRepo) List(ctx context.Context, f task.ListFilter) ([]*task.Task, error) {
+	// Build query dynamically based on which filters are set.
+	query := `SELECT ` + selectCols + ` FROM tasks WHERE TRUE`
+	args := []any{}
+	n := 1
+
+	if f.Status != nil {
+		query += fmt.Sprintf(" AND status = $%d", n)
+		args = append(args, string(*f.Status))
+		n++
+	}
+	if f.From != nil {
+		query += fmt.Sprintf(" AND scheduled_at >= $%d", n)
+		args = append(args, *f.From)
+		n++
+	}
+	if f.To != nil {
+		query += fmt.Sprintf(" AND scheduled_at <= $%d", n)
+		args = append(args, *f.To)
+		n++
+	}
+	if f.ParentID != nil {
+		query += fmt.Sprintf(" AND parent_task_id = $%d", n)
+		args = append(args, *f.ParentID)
+		n++
+	}
+	_ = n // suppress unused warning after last increment
+
+	query += " ORDER BY scheduled_at ASC"
+
+	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("repository: list tasks: %w", err)
 	}

@@ -15,11 +15,18 @@
       "get": {
         "summary": "List all tasks",
         "tags": ["tasks"],
+        "parameters": [
+          { "in": "query", "name": "status",    "type": "string", "description": "Filter by status (new|in_progress|done|cancelled)" },
+          { "in": "query", "name": "from",      "type": "string", "format": "date-time", "description": "scheduled_at >= from (RFC3339)" },
+          { "in": "query", "name": "to",        "type": "string", "format": "date-time", "description": "scheduled_at <= to (RFC3339)" },
+          { "in": "query", "name": "parent_id", "type": "string", "format": "uuid",      "description": "Filter by parent_task_id" }
+        ],
         "responses": {
           "200": {
             "description": "List of tasks",
             "schema": { "type": "array", "items": { "$ref": "#/definitions/Task" } }
           },
+          "400": { "description": "Invalid query parameter", "schema": { "$ref": "#/definitions/ErrorResponse" } },
           "500": { "description": "Internal error", "schema": { "$ref": "#/definitions/ErrorResponse" } }
         }
       },

@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -162,11 +163,22 @@ func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 // @Summary      List all tasks
 // @Tags         tasks
 // @Produce      json
+// @Param        status    query string false "Filter by status (new|in_progress|done|cancelled)"
+// @Param        from      query string false "Filter scheduled_at >= from (RFC3339)"
+// @Param        to        query string false "Filter scheduled_at <= to (RFC3339)"
+// @Param        parent_id query string false "Filter by parent_task_id (UUID)"
 // @Success      200 {array}  task.Task
+// @Failure      400 {object} errorResponse
 // @Failure      500 {object} errorResponse
 // @Router       /tasks [get]
 func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
-	tasks, err := h.uc.ListTasks(r.Context())
+	f, err := parseListFilter(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	tasks, err := h.uc.ListTasks(r.Context(), f)
 	if err != nil {
 		respondError(w, err)
 		return
@@ -175,6 +187,47 @@ func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		tasks = []*task.Task{}
 	}
 	writeJSON(w, http.StatusOK, tasks)
+}
+
+// parseListFilter reads optional query parameters and builds a ListFilter.
+func parseListFilter(r *http.Request) (task.ListFilter, error) {
+	var f task.ListFilter
+
+	if s := r.URL.Query().Get("status"); s != "" {
+		st := task.Status(s)
+		switch st {
+		case task.StatusNew, task.StatusInProgress, task.StatusDone, task.StatusCancelled:
+		default:
+			return f, fmt.Errorf("invalid status %q: must be one of new, in_progress, done, cancelled", s)
+		}
+		f.Status = &st
+	}
+
+	if s := r.URL.Query().Get("from"); s != "" {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			return f, fmt.Errorf("invalid from: %w", err)
+		}
+		f.From = &t
+	}
+
+	if s := r.URL.Query().Get("to"); s != "" {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			return f, fmt.Errorf("invalid to: %w", err)
+		}
+		f.To = &t
+	}
+
+	if s := r.URL.Query().Get("parent_id"); s != "" {
+		id, err := uuid.Parse(s)
+		if err != nil {
+			return f, fmt.Errorf("invalid parent_id: must be a valid UUID")
+		}
+		f.ParentID = &id
+	}
+
+	return f, nil
 }
 
 // UpdateTask godoc

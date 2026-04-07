@@ -1,0 +1,5 @@
+bin/
+pgdata/
+.env
+.git
+*.md

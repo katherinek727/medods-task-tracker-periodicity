@@ -23,6 +23,11 @@ func NewRouter(h *Handler) http.Handler {
 		http.ServeFile(w, req, "docs/swagger.json")
 	})
 
+	// Redirect /swagger → /swagger/index.html for convenience.
+	r.Get("/swagger", func(w http.ResponseWriter, req *http.Request) {
+		http.Redirect(w, req, "/swagger/index.html", http.StatusMovedPermanently)
+	})
+
 	// Swagger UI — reads spec from /swagger/openapi.json.
 	r.Get("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/openapi.json"),
